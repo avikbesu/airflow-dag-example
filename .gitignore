@@ -1,0 +1,3 @@
+airflow-data/logs/
+airflow-data/plugins/
+postgres-data/
