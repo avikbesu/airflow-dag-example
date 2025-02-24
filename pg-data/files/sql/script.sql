@@ -45,4 +45,3 @@ CREATE TABLE IF NOT EXISTS account.mapping
     value TEXT
 );
 
-CREATE DATABASE airflow;

@@ -1,10 +1,11 @@
-version: '3'
 x-airflow-common:
   &airflow-common
   image: apache/airflow:2.10.5
+  profiles:
+    - dist
   environment:
     - AIRFLOW__CORE__EXECUTOR=LocalExecutor
-    - AIRFLOW__CORE__SQL_ALCHEMY_CONN=postgresql+psycopg2://postgres:postgres@postgres:5432/airflow
+    - AIRFLOW__CORE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow_user:password@postgres:5432/airflow
     - AIRFLOW__CORE__FERNET_KEY=FB0o_zt4e3Ziq3LdUUO7F2Z95cvFFx16hU8jTeR1ASM=
     - AIRFLOW__CORE__LOAD_EXAMPLES=True
     - AIRFLOW__CORE__LOGGING_LEVEL=INFO
@@ -18,18 +19,82 @@ x-airflow-common:
     - postgres
 
 services:
+
+  airflow_embedded:
+    profiles:
+      - embedded
+    image: skhatri/airflow:2.10.4-python3.9
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+      pg-data:
+        condition: service_completed_successfully
+    container_name: airflow
+    ports:
+      - 8280:8080
+    user: root
+    environment:
+      - LOCAL_EX=n
+      - EXECUTOR=Local
+    command: ["embedded"]
+    healthcheck:
+      test: ["CMD-SHELL", "[ -f /opt/airflow/templete/airflow.cfg ]"]
+      interval: "20s"
+      timeout: "20s"
+      retries: 5
+    volumes:
+      - ./airflow-data/dags:/opt/airflow/work/dags
+      - ./airflow-data/logs:/opt/airflow/work/logs
+      - ./airflow-data/plugins:/opt/airflow/work/plugins
+      - ./airflow-data/airflow.cfg:/opt/airflow/work/airflow.cfg
+      - /var/run/docker.sock:/var/run/docker.sock:rw
+
   postgres:
+    profiles:
+      - embedded
+      - dist
     image: postgres:17
     container_name: postgres
+    env_file:
+      - ".env"
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=airflow
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_HOST}
       - POSTGRES_PORT=5432
     ports:
       - "5432:5432"
     volumes:
-      - ./postgres-data:/var/lib/postgresql/data
+      - ./postgres-data/data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready"]
+      interval: "20s"
+      timeout: "20s"
+      retries: 5
+  
+  pg-data:
+    profiles:
+      - embedded
+      - dist
+    image: postgres:17
+    container_name: pg-data
+    env_file:
+      - ".env"
+    environment:
+      - PG_USER=${POSTGRES_USER}
+      - PGPASSWORD=${POSTGRES_PASSWORD}
+      - PG_HOST=${POSTGRES_HOST}
+    entrypoint: 
+      - /bin/bash
+      - -c
+      - /tmp/scripts/init.sh
+    volumes:
+      - ./pg-data/files/sql/:/tmp/data
+      - ./pg-data/files/scripts/:/tmp/scripts
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   airflow-init:
     << : *airflow-common
