@@ -12,9 +12,11 @@ x-airflow-common:
     - AIRFLOW__WEBSERVER__SHOW_TRIGGER_FORM_IF_NO_PARAMS=True
   volumes:
     - ./airflow-data/dags:/opt/airflow/dags
+    - ./airflow-data/configs:/opt/airflow/configs
     - ./airflow-data/logs:/opt/airflow/logs
     - ./airflow-data/plugins:/opt/airflow/plugins
     - ./airflow-data/airflow.cfg:/opt/airlfow/airflow.cfg
+    - /var/run/docker.sock:/var/run/docker.sock
   depends_on:
     - postgres
 

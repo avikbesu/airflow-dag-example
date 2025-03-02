@@ -1,0 +1,15 @@
+dev:
+  container_configs:
+    - name: "task1"
+      image: "busybox:latest"
+      command: "echo 'Running in dev - Task 1'"
+    - name: "task2"
+      image: "busybox:latest"
+      command: "echo 'Running in dev - Task 2'"
+
+prod:
+  container_configs:
+    - name: "task1"
+      command: "echo 'Running in prod - Task 1'"
+    - name: "task2"
+      command: "echo 'Running in prod - Task 2'"
