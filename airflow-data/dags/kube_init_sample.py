@@ -11,35 +11,29 @@ from kubernetes.client import models as k8s
 import yaml
 
 class CustomKubernetesPodOperator(KubernetesPodOperator):
-    def __init__(self, *args, config=None, xcom_push=False, **kwargs):
+    def __init__(self, *args, config=None, xcom_task_id=None, xcom_push=False, **kwargs):
         super().__init__(*args, **kwargs)
         self.config = config
+        self.xcom_task_id = xcom_task_id
         self.xcom_push = xcom_push
-
-    def execute(self, context: Context, *args, **kwargs):
-        ti: TaskInstance = context["ti"]
         
-        init_image_name = ti.xcom_pull(task_ids=f"read_yaml_config", key="init_image")
-        init_command = ti.xcom_pull(task_ids=f"read_yaml_config", key="init_command")
+    def get_xcom_value(self, context: Context, key: str):
+        ti: TaskInstance = context["ti"]
+        return ti.xcom_pull(task_ids=self.xcom_task_id, key=key)
+
+    def execute(self, context: Context, *args, **kwargs):        
+        init_image_name = self.get_xcom_value(context=context, key="init_image")
+        init_command = self.get_xcom_value(context=context, key="init_command")
 
         # Ensure init_command is a list
         if isinstance(init_command, str):
             init_command = init_command.split()  # Split the string into a list of arguments
-            
-        init_container_list = []
+        
         # Modify the init_containers to replace images
-        if self.config and "init_containers" in self.config:
-            for index, container in enumerate(self.config["init_containers"]):
+        if self.init_containers:
+            for container in self.init_containers:
                 container["image"] = init_image_name  # Replace image dynamically
-                container["entrypoint"] = init_command  # Replace command dynamically
-                init_container_list.append(
-                    k8s.V1Container(
-                        name=container["name"],
-                        image=container["image"],
-                        command=container["entrypoint"]
-                    )  
-                )                
-        self.init_containers = init_container_list  # Update the init_containers
+                container["command"] = init_command  # Replace command dynamically
 
         return super().execute(context)
 
@@ -76,14 +70,10 @@ with DAG(
         namespace="airflow",
         image="busybox:latest",  # Main container image
         name="custom-pod",
-        config={
-            "init_containers": [
-                {"name": f"init-container-{i}", "image": "", "entrypoint": []} for i in range(2)
-            ]
-        },
+        xcom_task_id="read_yaml_config",
         on_finish_action="keep_pod",
-        # init_containers=[{"name": f"init-container-{i}", "image": "", "entrypoint": []} for i in range(2)
-        #     ],
+        init_containers=[{"name": f"init-container-{i}", "image": "", "entrypoint": []} for i in range(2)
+            ],
         xcom_push=True
     )
 
