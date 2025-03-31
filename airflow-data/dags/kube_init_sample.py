@@ -25,18 +25,21 @@ class CustomKubernetesPodOperator(KubernetesPodOperator):
         # Ensure init_command is a list
         if isinstance(init_command, str):
             init_command = init_command.split()  # Split the string into a list of arguments
-        
+            
+        init_container_list = []
         # Modify the init_containers to replace images
         if self.config and "init_containers" in self.config:
             for index, container in enumerate(self.config["init_containers"]):
                 container["image"] = init_image_name  # Replace image dynamically
                 container["entrypoint"] = init_command  # Replace command dynamically
-                self.init_containers[index] = k8s.V1Container(
-                    name=container["name"],
-                    image=container["image"],
-                    command=container["entrypoint"]
-                )
-
+                init_container_list.append(
+                    k8s.V1Container(
+                        name=container["name"],
+                        image=container["image"],
+                        command=container["entrypoint"]
+                    )  
+                )                
+        self.init_containers = init_container_list  # Update the init_containers
 
         return super().execute(context)
 
@@ -79,8 +82,8 @@ with DAG(
             ]
         },
         on_finish_action="keep_pod",
-        init_containers=[{"name": f"init-container-{i}", "image": "", "entrypoint": []} for i in range(2)
-            ],
+        # init_containers=[{"name": f"init-container-{i}", "image": "", "entrypoint": []} for i in range(2)
+        #     ],
         xcom_push=True
     )
 
