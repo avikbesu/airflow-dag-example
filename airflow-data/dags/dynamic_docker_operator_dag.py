@@ -7,7 +7,7 @@ from airflow.models import Variable
 from airflow.utils.dates import days_ago
 from docker.types import Mount
 
-CONFIG_FILE_PATH = "/opt/airflow/configs/config.yaml"  # Update this path accordingly
+CONFIG_FILE_PATH = "/opt/airflow/dags/configs/config.yaml"  # Update this path accordingly
 
 def read_yaml_config():
     """Reads the YAML config file based on the environment stored in an Airflow variable."""

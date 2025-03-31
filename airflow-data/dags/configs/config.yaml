@@ -1,4 +1,6 @@
 dev:
+  init_image: "alpine:latest"
+  init_command: "echo 'Running in dev'"
   container_configs:
     - name: "task1"
       image: "busybox:latest"
