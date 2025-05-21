@@ -10,6 +10,7 @@ x-airflow-common:
     - AIRFLOW__CORE__LOAD_EXAMPLES=True
     - AIRFLOW__CORE__LOGGING_LEVEL=INFO
     - AIRFLOW__WEBSERVER__SHOW_TRIGGER_FORM_IF_NO_PARAMS=True
+    - AIRFLOW_VAR_ENVIRONMENT=example
   volumes:
     - ./airflow-data/dags:/opt/airflow/dags
     - ./airflow-data/configs:/opt/airflow/configs
@@ -127,3 +128,14 @@ services:
     command: airflow scheduler
     container_name: airflow_scheduler
     restart: always
+
+  airflow-variables-importer: # NEW SERVICE FOR IMPORTING VARIABLES
+    <<: *airflow-common
+    container_name: airflow_variables_importer
+    command: bash -c "airflow variables import /opt/airflow/variables.json --action-on-existing-key overwrite"
+    volumes:
+      - ./airflow-data/variable/variables.json:/opt/airflow/variables.json:ro # Mount your variables.json
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    restart: "no" # Ensure this service only runs once on startup

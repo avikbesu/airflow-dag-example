@@ -1,0 +1,6 @@
+{
+  "my_api_key": "your_secret_api_key",
+  "data_path": "/app/data",
+  "email_recipient": "user@example.com",
+  "project_name": "MyDataPipeline"
+}
