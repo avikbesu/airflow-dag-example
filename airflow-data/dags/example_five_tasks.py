@@ -5,41 +5,50 @@ from airflow.operators.python import PythonOperator
 from airflow.utils.trigger_rule import TriggerRule
 from datetime import datetime
 import time
+import logging
 
 def print_dagrun_metrics(**context):
+    logger = logging.getLogger("airflow.task")
+    logger.setLevel(logging.DEBUG)
     dag_run = context['dag_run']
-    print("Waiting for all tasks to complete...")
-    ti_list = dag_run.get_task_instances()
-    # wait till all other tasks are done apart from current task
-    while any(
-        ti.state not in ['success', 'failed', 'upstream_failed', 'skipped']
-        for ti in dag_run.get_task_instances()
-        if ti.task_id != context['task'].task_id
-    ):
-        # group tasks by state
-        task_states = {ti.task_id: ti.state for ti in dag_run.get_task_instances() if ti.task_id != context['task'].task_id}
-        print(f"Current task states: {task_states}")
-        time.sleep(1)
-    print("All tasks completed.")
-    # Print DAG run metrics
-    print(f"\nDAG Run Metrics:")
-    print(f"DAG Run ID: {dag_run.run_id}")
-    # Calculate state based on other tasks
-    if any(ti.state == 'failed' for ti in dag_run.get_task_instances() if ti.task_id != context['task'].task_id):
-        state = 'failed'
-    else:
-        state = 'success'
-    print(f"State: {state}")
-    print(f"Execution Date: {dag_run.execution_date}")
-    print(f"Start Date: {dag_run.start_date}")
-    # Calculate end date as the max end_date of all other tasks
-    end_dates = [ti.end_date for ti in context['dag_run'].get_task_instances() if ti.task_id != context['task'].task_id and ti.end_date]
-    max_end_date = max(end_dates) if end_dates else None
-    print(f"End Date: {max_end_date}")
-    
-    # Calculate duration
-    duration = (max_end_date - dag_run.start_date).total_seconds() if max_end_date else 0
-    print(f"Duration: {duration} seconds")
+    logger.debug("Waiting for all tasks to complete...")
+    try:
+        while any(
+            ti.state not in ['success', 'failed', 'upstream_failed', 'skipped']
+            for ti in dag_run.get_task_instances()
+            if ti.task_id != context['task'].task_id
+        ):
+            # group tasks by state
+            task_states = {ti.task_id: ti.state for ti in dag_run.get_task_instances() if ti.task_id != context['task'].task_id}
+            logger.debug(f"Current task states: {task_states}")
+            time.sleep(1)
+        logger.info("All tasks completed.")
+        # Print DAG run metrics
+        logger.info(f"DAG Run Metrics:")
+        logger.info(f"DAG Run ID: {dag_run.run_id}")
+        # Calculate state based on other tasks
+        if any(ti.state == 'failed' for ti in dag_run.get_task_instances() if ti.task_id != context['task'].task_id):
+            state = 'failed'
+        else:
+            state = 'success'
+        logger.info(f"State: {state}")
+        logger.info(f"Execution Date: {dag_run.execution_date}")
+        logger.info(f"Start Date: {dag_run.start_date}")
+        # Calculate Airflow lag
+        if dag_run.start_date and dag_run.execution_date:
+            lag = (dag_run.start_date - dag_run.execution_date).total_seconds()
+            logger.info(f"Airflow Lag: {lag} seconds")
+        else:
+            logger.warning("Airflow Lag: N/A")
+        # Calculate end date as the max end_date of all other tasks
+        end_dates = [ti.end_date for ti in context['dag_run'].get_task_instances() if ti.task_id != context['task'].task_id and ti.end_date]
+        max_end_date = max(end_dates) if end_dates else None
+        logger.info(f"End Date: {max_end_date}")
+        # Calculate duration
+        duration = (max_end_date - dag_run.start_date).total_seconds() if max_end_date else 0
+        logger.info(f"Duration: {duration} seconds")
+    except Exception as e:
+        logger.error(f"Error while collecting DAG run metrics: {e}", exc_info=True)
 
 with DAG(
     dag_id="capture_log_sample_dag",
